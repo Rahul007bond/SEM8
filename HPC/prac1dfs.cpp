@@ -60,7 +60,7 @@ void parallelDFS(vector<vector<int>>& graph, int start) {
 }
 
 int main() {
-    vector<vector<int>> graph(5);
+    vector<vector<int>> graph(6);
       graph[0] = {1, 2};
   graph[1] = {0, 3, 4};
   graph[2] = {0, 4};
