@@ -1,44 +1,67 @@
 #include <iostream>
-#include <ctime>
-#include <cstdlib>
+#include <vector>
 #include <omp.h>
+#include <cstdlib>
+#include <ctime> 
 
 using namespace std;
+void generate_random_data(vector<int>& arr, int size) {
+    srand(time(nullptr)); // Seed the random number generator
 
-void p_mergesort(int *a, int i, int j);
-void s_mergesort(int *a, int i, int j);
-void merge(int *a, int i1, int j1, int i2, int j2);
+    for (int i = 0; i < size; ++i) {
+        arr.push_back(rand() % 1000); // Generate random integers between 0 and 999
+    }
+}
+
+
 
 // Sequential Bubble Sort
-void bubble_sort_seq(int* arr, int n) {
-    for (int i = 0; i < n - 1; ++i) {
-        for (int j = 0; j < n - i - 1; ++j) {
-            if (arr[j] > arr[j + 1]) {
-                swap(arr[j], arr[j + 1]);
+void bubble_sort(vector<int>& arr) {
+    int n = arr.size();
+    for (int i = 0; i < n-1; i++) {
+        for (int j = 0; j < n-i-1; j++) {
+            if (arr[j] > arr[j+1]) {
+                swap(arr[j], arr[j+1]);
             }
         }
     }
 }
 
-// Parallel Bubble Sort
-void bubble_sort_par(int* a, int n) {
-      for (int i = 0; i < n; i++) {
-        int first = i % 2;
-#pragma omp parallel for shared(a, first) num_threads(4)
-        for (int j = first; j < n - 1; j += 2) {
-            if (a[j] > a[j + 1]) {
-                swap(a[j], a[j + 1]);
+// Parallel Odd-Even Transposition Sort using OpenMP
+void odd_even_sort(vector<int>& arr) {
+    int n = arr.size();
+    bool sorted = false;
+
+    while (!sorted) {
+        sorted = true;
+
+        // Odd phase
+        #pragma omp parallel for
+        for (int i = 1; i < n - 1; i += 2) {
+            if (arr[i] > arr[i + 1]) {
+                swap(arr[i], arr[i + 1]);
+                sorted = false;
+            }
+        }
+
+        // Even phase
+        #pragma omp parallel for
+        for (int i = 0; i < n - 1; i += 2) {
+            if (arr[i] > arr[i + 1]) {
+                swap(arr[i], arr[i + 1]);
+                sorted = false;
             }
         }
     }
 }
+
+
 // Merge function for Merge Sort
-void merge(int* arr, int l, int m, int r) {
+void merge(vector<int>& arr, int l, int m, int r) {
     int n1 = m - l + 1;
     int n2 = r - m;
 
-    int* L = new int[n1];
-    int* R = new int[n2];
+    vector<int> L(n1), R(n2);
 
     for (int i = 0; i < n1; ++i)
         L[i] = arr[l + i];
@@ -68,13 +91,10 @@ void merge(int* arr, int l, int m, int r) {
         ++j;
         ++k;
     }
-
-    delete[] L;
-    delete[] R;
 }
 
 // Sequential Merge Sort
-void merge_sort_seq(int* arr, int l, int r) {
+void merge_sort_seq(vector<int>& arr, int l, int r) {
     if (l >= r) return;
     int m = l + (r - l) / 2;
     merge_sort_seq(arr, l, m);
@@ -83,11 +103,11 @@ void merge_sort_seq(int* arr, int l, int r) {
 }
 
 // Parallel Merge Sort
-void merge_sort_par(int* arr, int l, int r) {
+void merge_sort_par(vector<int>& arr, int l, int r) {
     if (l >= r) return;
     int m = l + (r - l) / 2;
 
-    #pragma omp parallel sections
+    #pragma omp parallel sections num_threads(4)
     {
         #pragma omp section
         merge_sort_par(arr, l, m);
@@ -97,58 +117,38 @@ void merge_sort_par(int* arr, int l, int r) {
 
     merge(arr, l, m, r);
 }
-
 int main() {
+      vector<int> arr;
+    const int array_size = 100000; // Change the size as needed
+
     // Generate random data
-    const int SIZE = 10000;
-    int* data = new int[SIZE];
-    srand(time(NULL));
-    for (int i = 0; i < SIZE; ++i) {
-        data[i] = rand() % SIZE;
-    }
+    generate_random_data(arr, array_size);
 
-    // Sequential Bubble Sort
-    int* seq_bubble_data = new int[SIZE];
-    for (int i = 0; i < SIZE; ++i)
-        seq_bubble_data[i] = data[i];
-    clock_t start_time = clock();
-    bubble_sort_seq(seq_bubble_data, SIZE);
-    clock_t end_time = clock();
-    double seq_bubble_time = double(end_time - start_time) / CLOCKS_PER_SEC;
+    double start, end;
 
-    // Parallel Bubble Sort
-    int* par_bubble_data = new int[SIZE];
-    for (int i = 0; i < SIZE; ++i)
-        par_bubble_data[i] = data[i];
-    start_time = clock();
-    bubble_sort_par(par_bubble_data, SIZE);
-    end_time = clock();
-    double par_bubble_time = double(end_time - start_time) / CLOCKS_PER_SEC;
+    // Measure performance of sequential bubble sort
+    start = omp_get_wtime();
+    bubble_sort(arr);
+    end = omp_get_wtime();
+    cout << "Sequential bubble sort time: " << end - start << " seconds" << endl;
 
-    // Sequential Merge Sort
-    int* seq_merge_data = new int[SIZE];
-    for (int i = 0; i < SIZE; ++i)
-        seq_merge_data[i] = data[i];
-    start_time = clock();
-    merge_sort_seq(seq_merge_data, 0, SIZE - 1);
-    end_time = clock();
-    double seq_merge_time = double(end_time - start_time) / CLOCKS_PER_SEC;
+    // Measure performance of parallel odd-even transposition sort
+    start = omp_get_wtime();
+    odd_even_sort(arr);
+    end = omp_get_wtime();
+    cout << "Parallel odd-even transposition sort time: " << end - start << " seconds" << endl;
 
-    // Parallel Merge Sort
-    int* par_merge_data = new int[SIZE];
-    for (int i = 0; i < SIZE; ++i)
-        par_merge_data[i] = data[i];
-    start_time = clock();
-    merge_sort_seq(par_merge_data, 0, SIZE - 1);
-    end_time = clock();
-    double par_merge_time = double(end_time - start_time) / CLOCKS_PER_SEC;
+    // Measure performance of sequential merge sort
+    start = omp_get_wtime();
+    merge_sort_seq(arr, 0, arr.size() - 1);
+    end = omp_get_wtime();
+    cout << "Sequential merge sort time: " << end - start << " seconds" << endl;
 
-    // Output timing results
-    cout << "Sequential Bubble Sort Time: " << seq_bubble_time << " seconds" << endl;
-    cout << "Parallel Bubble Sort Time: " << par_bubble_time << " seconds" << endl;
-    cout << "Sequential Merge Sort Time: " << seq_merge_time << " seconds" << endl;
-    cout << "Parallel Merge Sort Time: " << par_merge_time << " seconds" << endl;
-
+    // Measure performance of parallel merge sort
+    start = omp_get_wtime();
+    merge_sort_par(arr, 0, arr.size() - 1);
+    end = omp_get_wtime();
+    cout << "Parallel merge sort time: " << end - start << " seconds" << endl;
 
     return 0;
 }
